@@ -70,8 +70,8 @@
       header .h-16 { gap: 4px; }
       header .h-16 button { padding-left: .4rem !important; padding-right: .4rem !important; }
       #btn-header-sync span { display: none; }
-      #btn-analogy-toggle span, #btn-large-text span { font-size: 0; }
-      #btn-analogy-toggle span::after { content: "AI"; font-size: .75rem; }
+      #btn-large-text span { font-size: 0; }
+      /* analogy toggle is now in the quiz card */
       #btn-large-text span::after { content: "Aa"; font-size: .75rem; }
       .mobile-padding { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
       div.fixed.bottom-0 { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
@@ -140,11 +140,7 @@
           <span>Large text: Off</span>
         </button>
 
-        <!-- Analogy Toggle (opt-in, off by default) -->
-        <button id="btn-analogy-toggle" type="button" aria-pressed="false" title="Show a short data-networking analogy under each explanation" class="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-darkbg-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkbg-700 transition-colors">
-          <span>Analogy: Off</span>
-        </button>
-
+<!-- Analogy toggle lives in the quiz card (see q-analogy-toggle-row) -->
         <!-- Theme Toggle -->
           <button id="btn-theme-toggle" title="Toggle Dark/Light Mode" class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-darkbg-700 transition-colors">
             <svg id="icon-theme-sun" class="w-5 h-5 hidden dark:block text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
@@ -534,6 +530,11 @@
           <div class="flex items-center space-x-2">
             <div class="w-5 h-5 rounded-full bg-nvidia flex items-center justify-center text-white text-xs font-black">✓</div>
             <span class="font-bold text-sm text-nvidia dark:text-nvidia-300" id="q-explanation-header">Correct Answer: C</span>
+          </div>
+          <div id="q-analogy-toggle-row" class="pl-7">
+            <button id="btn-analogy-toggle" type="button" aria-pressed="false" title="Show a short data-networking analogy under each explanation" class="px-3 py-1.5 rounded-lg text-xs font-bold border border-nvidia/40 text-nvidia dark:text-nvidia-300 bg-white/70 dark:bg-darkbg-900/60 hover:bg-nvidia/10 transition-colors">
+              <span>Analogy: Off</span>
+            </button>
           </div>
           <p id="q-explanation-text" class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed pl-7">
             Explanation rationale...
