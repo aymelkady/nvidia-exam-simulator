@@ -631,7 +631,11 @@
         </button>
         <button id="btn-res-drill-missed" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-3 rounded-xl shadow-md transition-all flex items-center space-x-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-          <span>Practice Incorrect Questions Only</span>
+          <span id="res-drill-missed-label">Practice Wrong Questions Only</span>
+        </button>
+        <button id="btn-res-continue-unanswered" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-3 rounded-xl shadow-md transition-all flex items-center space-x-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          <span id="res-unanswered-label">Continue Unanswered Questions</span>
         </button>
         <button id="btn-res-home" class="bg-slate-200 dark:bg-darkbg-700 hover:bg-slate-300 dark:hover:bg-darkbg-600 font-semibold px-5 py-3 rounded-xl transition-all">
           Back to Dashboard
@@ -1864,7 +1868,16 @@
       const current = state.quiz.currentIndex + 1;
 
       // Update Header Text & Bar
-      document.getElementById('quiz-progress-text').textContent = 'Question ' + current + ' of ' + total;
+      let progressText = 'Question ' + current + ' of ' + total;
+      if (state.quiz.mode === 'practice') {
+        let doneCnt = 0, rightCnt = 0;
+        state.quiz.questions.forEach(x => {
+          const sel = state.quiz.answers[x.id];
+          if (isAnswerComplete(x, sel)) { doneCnt++; if (sel === x.answer) rightCnt++; }
+        });
+        if (doneCnt) progressText += ' • ' + Math.round(rightCnt / doneCnt * 100) + '% (' + rightCnt + '/' + doneCnt + ')';
+      }
+      document.getElementById('quiz-progress-text').textContent = progressText;
       const pct = Math.round((current / total) * 100);
       document.getElementById('quiz-progress-bar').style.width = pct + '%';
 
@@ -2057,12 +2070,16 @@
       state.quiz.graded = true;
       const questions = state.quiz.questions;
       let correct = 0;
+      let answeredCnt = 0;
+      const practiceGrade = state.quiz.mode === 'practice';
       const domainStats = {};
 
       questions.forEach(q => {
         const userChoice = state.quiz.answers[q.id];
         const isRight = userChoice === q.answer;
         if (isRight) correct++;
+        if (isAnswerComplete(q, userChoice)) answeredCnt++;
+        else if (practiceGrade) return;
 
         const d = q.domain || 'General';
         if (!domainStats[d]) domainStats[d] = { total: 0, correct: 0 };
@@ -2071,7 +2088,8 @@
       });
 
       const total = questions.length;
-      const pct = Math.round((correct / total) * 100);
+      const gradeBase = practiceGrade ? answeredCnt : total;
+      const pct = gradeBase ? Math.round((correct / gradeBase) * 100) : 0;
       const passed = pct >= 70;
 
       const result = {
@@ -2080,7 +2098,9 @@
         title: state.quiz.title,
         total: total,
         correct: correct,
-        incorrect: total - correct,
+        incorrect: gradeBase - correct,
+        answered: answeredCnt,
+        unanswered: total - answeredCnt,
         percentage: pct,
         passed: passed,
         timeElapsed: state.quiz.timeElapsed,
@@ -2104,7 +2124,7 @@
       state.storage.history.unshift({
         date: result.date,
         title: result.title,
-        score: result.correct + ' / ' + result.total,
+        score: result.correct + ' / ' + (practiceGrade ? answeredCnt : result.total),
         percentage: result.percentage,
         passed: result.passed
       });
@@ -2152,7 +2172,22 @@
       }
 
       document.getElementById('results-pct').textContent = r.percentage + '%';
-      document.getElementById('results-fraction').textContent = r.correct + ' / ' + r.total;
+      const isPracticeResult = r.mode === 'practice';
+      if (isPracticeResult) {
+        title.textContent = r.passed ? 'Great Practice Session!' : 'Practice Complete: Review Your Wrong Answers';
+        subtitle.textContent = 'Practice score: ' + r.percentage + '% correct (' + r.correct + ' of ' + r.answered + ' answered)' +
+          (r.unanswered ? '. ' + r.unanswered + ' not answered (not counted in the score).' : '.') +
+          (r.incorrect ? ' Practise the ' + r.incorrect + ' wrong question' + (r.incorrect === 1 ? '' : 's') + ' only with the button below.' : ' No wrong answers!');
+      }
+      document.getElementById('results-fraction').textContent = r.correct + ' / ' + (isPracticeResult ? r.answered : r.total);
+      const drillBtn = document.getElementById('btn-res-drill-missed');
+      document.getElementById('res-drill-missed-label').textContent =
+        'Practice ' + r.incorrect + ' Wrong Question' + (r.incorrect === 1 ? '' : 's') + ' Only';
+      drillBtn.classList.toggle('hidden', r.incorrect === 0);
+      const contBtn = document.getElementById('btn-res-continue-unanswered');
+      document.getElementById('res-unanswered-label').textContent =
+        'Continue ' + r.unanswered + ' Unanswered Question' + (r.unanswered === 1 ? '' : 's');
+      contBtn.classList.toggle('hidden', !(isPracticeResult && r.unanswered > 0));
       document.getElementById('res-correct-count').textContent = r.correct;
       document.getElementById('res-incorrect-count').textContent = r.incorrect;
 
@@ -2864,13 +2899,23 @@
 
       document.getElementById('btn-res-drill-missed').addEventListener('click', () => {
         if (!state.results) return;
-        const wrongQs = state.results.questions.filter(q => !q.isCorrect);
+        const practiceRes = state.results.mode === 'practice';
+        const wrongQs = state.results.questions.filter(q => !q.isCorrect && (!practiceRes || q.userChoice));
         if (wrongQs.length === 0) {
           showToast('Zero incorrect answers in this session! 100% score!', 'success');
           return;
         }
-        const fullQs = ALL_QUESTIONS.filter(q => wrongQs.some(wq => wq.id === q.id));
-        startQuiz('practice', fullQs, 'Drill ' + fullQs.length + ' Incorrect Questions');
+        const fullQs = wrongQs.map(wq => ALL_QUESTIONS.find(q => q.id === wq.id)).filter(Boolean);
+        startQuiz('practice', fullQs, 'Drill ' + fullQs.length + ' Wrong Questions');
+      });
+
+      document.getElementById('btn-res-continue-unanswered').addEventListener('click', () => {
+        if (!state.results) return;
+        const todo = state.results.questions
+          .filter(rq => { const fq = ALL_QUESTIONS.find(q => q.id === rq.id); return fq && !isAnswerComplete(fq, rq.userChoice); })
+          .map(rq => ALL_QUESTIONS.find(q => q.id === rq.id));
+        if (!todo.length) { showToast('No unanswered questions left.', 'success'); return; }
+        startQuiz('practice', todo, 'Continue ' + todo.length + ' Unanswered Questions');
       });
 
       document.getElementById('btn-res-home').addEventListener('click', () => switchView('home'));
